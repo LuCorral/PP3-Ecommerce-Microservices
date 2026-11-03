@@ -1,27 +1,31 @@
 {
-  "name": "e-commerce-2",
+  "name": "ecommerceapp2-microservicios",
   "version": "1.0.0",
   "description": "",
-  "main": "server.js",
-  "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "node server.js",
-    "seed": "node seed_DB.js",
-    "seed:coupons": "node seed_Cupones_DB.js",
-    "seed:users": "node seed_Users_DB.js",
-    "seed:all": "node seed_Cupones_DB.js && node seed_DB.js && node seed_Users_DB.js"
+  "main": "index.js",
+  "directories": {
+    "test": "test"
+  },
+"scripts": {
+  "start": "node src/server.js",
+  "test": "node --test"
+},
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LuCorral/PP3-Ecommerce-Microservices.git"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/LuCorral/PP3-Ecommerce-Microservices/issues"
+  },
+  "homepage": "https://github.com/LuCorral/PP3-Ecommerce-Microservices#readme",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3",
-    "sequelize": "^6.37.8",
-    "sqlite3": "^6.0.1"
+    "dotenv": "^18.0.9",
+    "express": "^5.3.0",
+    "jsonwebtoken": "^9.0.3"
   }
 }
