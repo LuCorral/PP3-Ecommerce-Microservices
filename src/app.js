@@ -145,6 +145,41 @@ function createApp({ usersUrl, catalogUrl, ordersUrl, timeoutMs }) {
   });
 
   // --------------------------------------------------
+// SESIONES - RUTA CANÓNICA
+// --------------------------------------------------
+
+app.post("/api/sesiones", async (req, res) => {
+  try {
+    const result = await callService(
+      "users",
+      "/api/sesiones",
+      {
+        method: "POST",
+        body: {
+          email: req.body.email,
+          password: req.body.password,
+        },
+      }
+    );
+
+    return res
+      .status(result.status)
+      .json(result.data);
+
+  } catch (error) {
+    console.error(
+      "Error comunicándose con Usuarios:",
+      error.message
+    );
+
+    return res.status(503).json({
+      message:
+        "El servicio de usuarios no está disponible",
+    });
+  }
+});
+
+  // --------------------------------------------------
   // LOGIN
   // --------------------------------------------------
 
@@ -206,6 +241,121 @@ function createApp({ usersUrl, catalogUrl, ordersUrl, timeoutMs }) {
       }
     }
   );
+
+  // --------------------------------------------------
+// USUARIOS - REGISTRO CANÓNICO
+// --------------------------------------------------
+
+app.post("/api/usuarios", async (req, res) => {
+  try {
+    const result = await callService(
+      "users",
+      "/api/usuarios",
+      {
+        method: "POST",
+        body: {
+          ...req.body,
+          name: req.body.name ?? req.body.nombre,
+        },
+      }
+    );
+
+    return res
+      .status(result.status)
+      .json(result.data);
+
+  } catch (error) {
+    console.error(
+      "Error registrando usuario:",
+      error.message
+    );
+
+    return res.status(503).json({
+      message:
+        "El servicio de usuarios no está disponible",
+    });
+  }
+});
+
+// --------------------------------------------------
+// USUARIO AUTENTICADO
+// --------------------------------------------------
+
+app.get(
+  "/api/usuarios/me",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "users",
+        "/api/usuarios/me",
+        {
+          headers: {
+            Authorization:
+              req.get("authorization"),
+          },
+        }
+      );
+
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error consultando usuario:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de usuarios no está disponible",
+      });
+    }
+  }
+);
+
+// --------------------------------------------------
+// ACTUALIZAR USUARIO AUTENTICADO
+// --------------------------------------------------
+
+app.put(
+  "/api/usuarios/me",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "users",
+        "/api/usuarios/me",
+        {
+          method: "PUT",
+
+          headers: {
+            Authorization:
+              req.get("authorization"),
+          },
+
+          body: req.body,
+        }
+      );
+
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error actualizando usuario:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de usuarios no está disponible",
+      });
+    }
+  }
+);
 
   // --------------------------------------------------
   // REGISTRO
