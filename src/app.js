@@ -5,11 +5,25 @@ const jwt = require("jsonwebtoken");
 function createApp({ usersUrl, catalogUrl, ordersUrl, timeoutMs }) {
   const app = express();
 
+  const allowedOrigins = [
+    "https://pp3-frontend-alternativo.vercel.app",
+  ];
+
   app.use(
     cors({
-      origin: process.env.FRONTEND_ORIGIN || "*",
+      origin: (origin, callback) => {
+        if (!origin || allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        }
+
+        return callback(
+          new Error("Origen no permitido por CORS")
+        );
+      },
     })
   );
+
+  app.use(express.json());
 
   app.use(express.json());
 
@@ -676,6 +690,84 @@ app.put(
       }
     }
   );
+
+// --------------------------------------------------
+// RECUPERAR INTENTO DE PEDIDO
+// --------------------------------------------------
+
+app.get(
+  "/api/pedidos/operaciones/:attemptId",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "orders",
+        `/api/pedidos/internal/intentos/${encodeURIComponent(
+          req.params.attemptId
+        )}`,
+        {
+          internal: true,
+          headers: {
+            "x-user-id": String(
+              req.user.sub ||
+              req.user.id
+            ),
+            "x-user-role": String(
+              req.user.role ||
+              ""
+            ),
+          },
+        }
+      );
+
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error recuperando intento de pedido:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de pedidos no está disponible",
+      });
+    }
+  }
+);
+
+  // --------------------------------------------------
+// DETALLE DE PRODUCTO
+// --------------------------------------------------
+
+app.get(
+  "/api/productos/:id",
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "catalog",
+        `/api/productos/${encodeURIComponent(req.params.id)}`
+      );
+
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error consultando producto:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de catálogo no está disponible",
+      });
+    }
+  }
+);
 
   // --------------------------------------------------
   // CATEGORÍAS
