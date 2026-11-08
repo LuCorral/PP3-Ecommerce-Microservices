@@ -357,6 +357,78 @@ app.put(
   }
 );
 
+// --------------------------------------------------
+// CARRITO DEL USUARIO
+// --------------------------------------------------
+
+app.get(
+  "/api/usuarios/me/carrito",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "users",
+        "/api/usuarios/me/carrito",
+        {
+          headers: {
+            Authorization: req.get("authorization"),
+          },
+        }
+      );
+
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error consultando carrito:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de usuarios no está disponible",
+      });
+    }
+  }
+);
+
+app.put(
+  "/api/usuarios/me/carrito",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "users",
+        "/api/usuarios/me/carrito",
+        {
+          method: "PUT",
+          headers: {
+            Authorization: req.get("authorization"),
+          },
+          body: req.body,
+        }
+      );
+
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error guardando carrito:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de usuarios no está disponible",
+      });
+    }
+  }
+);
+
   // --------------------------------------------------
   // REGISTRO
   // --------------------------------------------------
@@ -735,332 +807,521 @@ app.put(
   );
 
   // --------------------------------------------------
-  // CANCELACIÓN DE PEDIDOS
-  // --------------------------------------------------
+// DETALLE DE PEDIDO
+// --------------------------------------------------
 
-  app.put(
-    "/api/pedidos/:id/cancelar",
-    requireAuth,
-    async (req, res) => {
-      try {
-        const orderId =
-          req.params.id;
-
-        const userHeaders = {
-          "x-user-id":
-            String(
-              req.user.sub ||
-              req.user.id
-            ),
-
-          "x-user-role":
-            String(
-              req.user.role ||
-              ""
-            ),
-        };
-
-        // 1. Consultar pedido
-        const orderResult =
-          await callService(
-            "orders",
-            `/api/pedidos/${orderId}`,
-            {
-              internal: true,
-              headers: userHeaders,
-            }
-          );
-
-        if (
-          orderResult.status >= 400
-        ) {
-          return res
-            .status(
-              orderResult.status
-            )
-            .json(orderResult.data);
+app.get(
+  "/api/pedidos/:id",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "orders",
+        `/api/pedidos/${req.params.id}`,
+        {
+          internal: true,
+          headers: {
+            "x-user-id": req.user.sub,
+            "x-user-role": req.user.role,
+          },
         }
+      );
 
-        const order =
-          orderResult.data;
+      return res
+        .status(result.status)
+        .json(result.data);
 
-        // 2. Pasar a cancelling
-        const cancellingResult =
-          await callService(
-            "orders",
-            `/api/pedidos/${orderId}`,
-            {
-              method: "PATCH",
-              internal: true,
+    } catch (error) {
+      console.error(
+        "Error consultando pedido:",
+        error.message
+      );
 
-              headers:
-                userHeaders,
-
-              body: {
-                estado:
-                  "cancelling",
-              },
-            }
-          );
-
-        if (
-          cancellingResult.status >=
-          400
-        ) {
-          return res
-            .status(
-              cancellingResult.status
-            )
-            .json(
-              cancellingResult.data
-            );
-        }
-
-        // 3. Preparar productos
-        const items =
-          Array.isArray(
-            order.detalles
-          )
-            ? order.detalles.map(
-                (item) => ({
-                  productId:
-                    item.productoId,
-
-                  quantity:
-                    item.cantidad,
-                })
-              )
-            : [];
-
-        if (
-          items.length === 0
-        ) {
-          return res
-            .status(409)
-            .json({
-              message:
-                "El pedido no tiene productos para devolver",
-            });
-        }
-
-        // 4. Restaurar stock
-        const inventoryResult =
-          await callService(
-            "catalog",
-            "/api/movimientos-stock",
-            {
-              method: "POST",
-              internal: true,
-
-              body: {
-                orderId:
-                  String(orderId),
-
-                idempotencyKey:
-                  `order:${orderId}:cancel`,
-
-                items,
-
-                action:
-                  "return",
-              },
-            }
-          );
-
-        if (
-          inventoryResult.status >=
-          400
-        ) {
-          return res
-            .status(
-              inventoryResult.status
-            )
-            .json({
-              message:
-                "No se pudo restaurar el stock",
-
-              detalle:
-                inventoryResult.data,
-            });
-        }
-
-        // 5. Pasar a cancelled
-        const cancelledResult =
-          await callService(
-            "orders",
-            `/api/pedidos/${orderId}`,
-            {
-              method: "PATCH",
-              internal: true,
-
-              headers:
-                userHeaders,
-
-              body: {
-                estado:
-                  "cancelled",
-              },
-            }
-          );
-
-        if (
-          cancelledResult.status >=
-          400
-        ) {
-          return res
-            .status(
-              cancelledResult.status
-            )
-            .json(
-              cancelledResult.data
-            );
-        }
-
-        return res
-          .status(200)
-          .json({
-            success: true,
-
-            message:
-              "Pedido cancelado",
-
-            pedido:
-              cancelledResult.data,
-
-            inventario:
-              inventoryResult.data,
-          });
-      } catch (error) {
-        console.error(
-          "Error cancelando pedido:",
-          error.message
-        );
-
-        return res.status(503).json({
-          message:
-            "No se pudo cancelar el pedido",
-        });
-      }
+      return res.status(503).json({
+        message:
+          "El servicio de pedidos no está disponible",
+      });
     }
-  );
+  }
+);
 
-  // --------------------------------------------------
-  // CREAR PEDIDO
-  // --------------------------------------------------
+// --------------------------------------------------
+// PAGAR PEDIDO
+// --------------------------------------------------
 
-  app.post(
-    "/api/pedidos",
-    requireAuth,
-    async (req, res) => {
-      try {
-        const items =
-          Array.isArray(
-            req.body.items
-          )
-            ? req.body.items.map(
-                (item) => ({
-                  productId:
-                    item.productId ??
-                    item.productoId,
-
-                  quantity:
-                    item.quantity ??
-                    item.cantidad,
-                })
-              )
-            : [];
-
-        if (
-          items.length === 0
-        ) {
-          return res
-            .status(400)
-            .json({
-              message:
-                "El pedido debe contener al menos un producto",
-            });
+app.post(
+  "/api/pedidos/:id/pagar",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "orders",
+        `/api/pedidos/${req.params.id}/pagar`,
+        {
+          method: "POST",
+          internal: true,
+          headers: {
+            "x-user-id": req.user.sub,
+            "x-user-role": req.user.role,
+          },
+          body: req.body,
         }
+      );
 
-        const idempotencyKey =
-          req.get(
-            "Idempotency-Key"
-          ) ||
-          `order-${
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error procesando pago:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de pedidos no está disponible",
+      });
+    }
+  }
+);
+
+// --------------------------------------------------
+// COMPROBANTE DE PEDIDO
+// --------------------------------------------------
+
+app.get(
+  "/api/pedidos/:id/comprobante",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const result = await callService(
+        "orders",
+        `/api/pedidos/${req.params.id}/comprobante`,
+        {
+          internal: true,
+          headers: {
+            "x-user-id": req.user.sub,
+            "x-user-role": req.user.role,
+          },
+        }
+      );
+
+      return res
+        .status(result.status)
+        .json(result.data);
+
+    } catch (error) {
+      console.error(
+        "Error consultando comprobante:",
+        error.message
+      );
+
+      return res.status(503).json({
+        message:
+          "El servicio de pedidos no está disponible",
+      });
+    }
+  }
+);
+
+  // --------------------------------------------------
+// CANCELACIÓN DE PEDIDOS
+// --------------------------------------------------
+
+const cancelarPedido = async (req, res) => {
+  try {
+    const orderId =
+      req.params.id;
+
+    const userHeaders = {
+      "x-user-id":
+        String(
+          req.user.sub ||
+          req.user.id
+        ),
+
+      "x-user-role":
+        String(
+          req.user.role ||
+          ""
+        ),
+    };
+
+    // ------------------------------------------
+    // 1. CONSULTAR PEDIDO
+    // ------------------------------------------
+
+    const orderResult =
+      await callService(
+        "orders",
+        `/api/pedidos/${orderId}`,
+        {
+          internal: true,
+          headers: userHeaders,
+        }
+      );
+
+    if (
+      orderResult.status >= 400
+    ) {
+      return res
+        .status(
+          orderResult.status
+        )
+        .json(
+          orderResult.data
+        );
+    }
+
+    const order =
+      orderResult.data;
+
+    // ------------------------------------------
+    // 2. PASAR PEDIDO A CANCELLING
+    // ------------------------------------------
+
+    const cancellingResult =
+      await callService(
+        "orders",
+        `/api/pedidos/${orderId}`,
+        {
+          method: "PATCH",
+          internal: true,
+
+          headers:
+            userHeaders,
+
+          body: {
+            estado:
+              "cancelling",
+          },
+        }
+      );
+
+    if (
+      cancellingResult.status >=
+      400
+    ) {
+      return res
+        .status(
+          cancellingResult.status
+        )
+        .json(
+          cancellingResult.data
+        );
+    }
+
+    // ------------------------------------------
+    // 3. PREPARAR PRODUCTOS
+    // ------------------------------------------
+
+    const items =
+      Array.isArray(
+        order.detalles
+      )
+        ? order.detalles.map(
+            (item) => ({
+              productId:
+                item.productoId,
+
+              quantity:
+                item.cantidad,
+            })
+          )
+        : [];
+
+    if (
+      items.length === 0
+    ) {
+      return res
+        .status(409)
+        .json({
+          message:
+            "El pedido no tiene productos para devolver",
+        });
+    }
+
+    // ------------------------------------------
+    // 4. RESTAURAR STOCK
+    // ------------------------------------------
+
+    const inventoryResult =
+      await callService(
+        "catalog",
+        "/api/movimientos-stock",
+        {
+          method: "POST",
+          internal: true,
+
+          body: {
+            orderId:
+              String(
+                orderId
+              ),
+
+            idempotencyKey:
+              `order:${orderId}:cancel`,
+
+            items,
+
+            action:
+              "return",
+          },
+        }
+      );
+
+    if (
+      inventoryResult.status >=
+      400
+    ) {
+      return res
+        .status(
+          inventoryResult.status
+        )
+        .json({
+          message:
+            "No se pudo restaurar el stock",
+
+          detalle:
+            inventoryResult.data,
+        });
+    }
+
+    // ------------------------------------------
+    // 5. PASAR PEDIDO A CANCELLED
+    // ------------------------------------------
+
+    const cancelledResult =
+      await callService(
+        "orders",
+        `/api/pedidos/${orderId}`,
+        {
+          method: "PATCH",
+          internal: true,
+
+          headers:
+            userHeaders,
+
+          body: {
+            estado:
+              "cancelled",
+          },
+        }
+      );
+
+    if (
+      cancelledResult.status >=
+      400
+    ) {
+      return res
+        .status(
+          cancelledResult.status
+        )
+        .json(
+          cancelledResult.data
+        );
+    }
+
+    return res
+      .status(200)
+      .json({
+        success: true,
+
+        message:
+          "Pedido cancelado",
+
+        pedido:
+          cancelledResult.data,
+
+        inventario:
+          inventoryResult.data,
+      });
+
+  } catch (error) {
+    console.error(
+      "Error cancelando pedido:",
+      error.message
+    );
+
+    return res
+      .status(503)
+      .json({
+        message:
+          "No se pudo cancelar el pedido",
+      });
+  }
+};
+
+
+// --------------------------------------------------
+// RUTA REST PRINCIPAL
+// PATCH /api/pedidos/:id
+// --------------------------------------------------
+
+app.patch(
+  "/api/pedidos/:id",
+  requireAuth,
+  async (req, res) => {
+
+    if (
+      req.body.estado !==
+      "cancelled"
+    ) {
+      return res
+        .status(400)
+        .json({
+          message:
+            "Solo se permite cancelar el pedido desde esta ruta",
+        });
+    }
+
+    return cancelarPedido(
+      req,
+      res
+    );
+  }
+);
+
+
+// --------------------------------------------------
+// RUTA LEGACY
+// Se mantiene temporalmente para no romper
+// el frontend existente.
+// --------------------------------------------------
+
+app.put(
+  "/api/pedidos/:id/cancelar",
+  requireAuth,
+  cancelarPedido
+);
+
+ // --------------------------------------------------
+// CREAR PEDIDO
+// --------------------------------------------------
+
+app.post(
+  "/api/pedidos",
+  requireAuth,
+  async (req, res) => {
+    try {
+      const items =
+        Array.isArray(
+          req.body.items
+        )
+          ? req.body.items.map(
+              (item) => ({
+                productId:
+                  item.productId ??
+                  item.productoId,
+
+                quantity:
+                  item.quantity ??
+                  item.cantidad,
+              })
+            )
+          : [];
+
+      if (
+        items.length === 0
+      ) {
+        return res
+          .status(400)
+          .json({
+            message:
+              "El pedido debe contener al menos un producto",
+          });
+      }
+
+      // Normalizamos el cupón para aceptar
+      // tanto couponCode como cupon
+      const couponCode =
+        req.body.couponCode ??
+        req.body.cupon ??
+        null;
+
+      const idempotencyKey =
+        req.get(
+          "Idempotency-Key"
+        ) ||
+        `order-${
+          req.user.sub ||
+          req.user.id
+        }-${Date.now()}`;
+
+      const userHeaders = {
+        "x-user-id":
+          String(
             req.user.sub ||
             req.user.id
-          }-${Date.now()}`;
+          ),
 
-        const userHeaders = {
-          "x-user-id":
-            String(
-              req.user.sub ||
-              req.user.id
-            ),
+        "x-user-role":
+          String(
+            req.user.role ||
+            ""
+          ),
+      };
 
-          "x-user-role":
-            String(
-              req.user.role ||
-              ""
-            ),
-        };
+      // ------------------------------------------
+      // 1. CREAR PEDIDO EN PEDIDOS
+      // ------------------------------------------
 
-        // ------------------------------------------
-        // 1. CREAR PEDIDO EN PEDIDOS
-        // ------------------------------------------
+      const orderResult =
+        await callService(
+          "orders",
+          "/api/pedidos",
+          {
+            method: "POST",
+            internal: true,
 
-        const orderResult =
-          await callService(
-            "orders",
-            "/api/pedidos",
-            {
-              method: "POST",
-              internal: true,
+            headers: {
+              ...userHeaders,
 
-              headers: {
-                ...userHeaders,
+              "x-user-email":
+                String(
+                  req.user.email ||
+                  ""
+                ),
 
-                "x-user-email":
-                  String(
-                    req.user.email ||
-                    ""
-                  ),
+              "x-user-name":
+                [
+                  req.user.name,
+                  req.user.apellido,
+                ]
+                  .filter(Boolean)
+                  .join(" "),
 
-                "x-user-name":
-                  [
-                    req.user.name,
-                    req.user.apellido,
-                  ]
-                    .filter(Boolean)
-                    .join(" "),
+              "idempotency-key":
+                idempotencyKey,
+            },
 
-                "idempotency-key":
-                  idempotencyKey,
-              },
+            body: {
+              items,
 
-              body: {
-                items,
+              direccionEntrega:
+                req.body
+                  .direccionEntrega,
 
-                direccionEntrega:
-                  req.body
-                    .direccionEntrega,
-              },
-            }
+              couponCode,
+            },
+          }
+        );
+
+      if (
+        orderResult.status >= 400
+      ) {
+        return res
+          .status(
+            orderResult.status
+          )
+          .json(
+            orderResult.data
           );
+      }
 
-        if (
-          orderResult.status >= 400
-        ) {
-          return res
-            .status(
-              orderResult.status
-            )
-            .json(
-              orderResult.data
-            );
-        }
-
-        const order =
-          orderResult.data;
+      const order =
+        orderResult.data;
 
         // ------------------------------------------
         // 2. DESCONTAR STOCK EN CATÁLOGO
@@ -1085,11 +1346,9 @@ app.put(
 
                 items,
 
-                couponCode:
-                  req.body
-                    .couponCode ??
-                  req.body.cupon ??
-                  null,
+                couponCode,
+                action:
+                  "sale",
               },
             }
           );
