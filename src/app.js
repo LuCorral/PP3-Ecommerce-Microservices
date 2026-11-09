@@ -67,7 +67,12 @@ function createApp({ usersUrl, catalogUrl, ordersUrl, timeoutMs }) {
         ? JSON.stringify(options.body)
         : undefined,
 
-      signal: AbortSignal.timeout(timeoutMs),
+      signal: AbortSignal.timeout(
+  options.timeoutMs ??
+    (service === "orders"
+      ? 90000
+      : timeoutMs)
+),
     });
 
     const data = await response.json();
@@ -1669,16 +1674,21 @@ app.post(
               inventoryResult.data,
           });
       } catch (error) {
-        console.error(
-          "Error creando pedido:",
-          error.message
-        );
+  console.error(
+    "Error creando pedido:",
+    error.message
+  );
 
-        return res.status(503).json({
-          message:
-            "No se pudo procesar el pedido",
-        });
-      }
+  return res.status(503).json({
+    message:
+      "El servicio de pedidos no respondió a tiempo o no está disponible",
+
+    uncertain: true,
+
+    attemptId:
+      idempotencyKey,
+  });
+}
     }
   );
 
